@@ -7,13 +7,16 @@ export function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();
 
+    setIsLoading(true);
     // Panggil Controller/Service kita
     const isSuccess = await AuthService.login(username, password);
 
+    setIsLoading(false);
     if (isSuccess) {
       navigate("/dashboard");
     } else {
@@ -22,7 +25,19 @@ export function Login() {
   };
 
   return (
-    <main className="flex items-center justify-center w-screen h-screen bg-gray-100 p-8">
+    <main className="relative flex items-center justify-center w-screen h-screen bg-gray-100 p-8">
+      {/* 🌟 OVERLAY LOADING ANIMATION 🌟 */}
+      {/* Akan muncul di atas segalanya kalau isLoading = true */}
+      <div 
+        className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/40 backdrop-blur-sm transition-all duration-300 ease-in-out
+          ${isLoading ? "opacity-100 visible" : "opacity-0 invisible"}
+        `}
+      >
+        {/* Spinner Tailwind */}
+        <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        <p className="mt-4 text-blue-800 font-semibold animate-pulse">Sedang masuk...</p>
+      </div>
+
       {/* Container Utama (Shadow & Rounded) */}
       <div className="flex flex-row w-full max-w-[60vw] h-[80vh] bg-white rounded-3xl shadow-2xl overflow-hidden">
         {/* KIRI - Bagian Teks (Lebar 60%) */}
