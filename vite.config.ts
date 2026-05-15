@@ -7,4 +7,14 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  server: {
+    proxy: {
+      // Setiap kali frontend request ke '/api', Vite akan nge-forward ke target
+      '/api': {
+        target: 'https://mppl.rutherweb.my.id',
+        changeOrigin: true,
+        secure: false, // Tambahin ini kalau SSL/HTTPS targetnya bermasalah
+      }
+    }
+  },
 });
