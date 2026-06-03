@@ -26,8 +26,6 @@ export function Login() {
 
   return (
     <main className="relative flex items-center justify-center w-screen h-screen bg-gray-100 p-8">
-      {/* 🌟 OVERLAY LOADING ANIMATION 🌟 */}
-      {/* Akan muncul di atas segalanya kalau isLoading = true */}
       <div 
         className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/40 backdrop-blur-sm transition-all duration-300 ease-in-out
           ${isLoading ? "opacity-100 visible" : "opacity-0 invisible"}

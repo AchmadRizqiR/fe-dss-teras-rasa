@@ -1,48 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+} from 'chart.js';
+import { Pie, Line } from 'react-chartjs-2';
+import DataService from '../services/DataService';
+import type { OmzetTrendData, KpiData } from '../services/DataService';
 
-// Type Definitions 
-type LineDataPoint = {
-  name: string;
-  mie: number;
-  jus: number;
-};
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+);
 
-type PieDataPoint = {
-  name: string;
-  value: number;
-  color: string;
-};
-
+// Type Definitions
 type IconProps = {
   size?: number;
 };
 
-type PadType = {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
+type PieChartData = {
+  labels: string[];
+  datasets: {
+    data: number[];
+    backgroundColor: string[];
+    borderWidth?: number;
+  }[];
 };
 
-// Data Sintesis 
-const lineData: LineDataPoint[] = [
-  { name: 'Tgl 1', mie: 20, jus: 15 },
-  { name: 'Tgl 5', mie: 35, jus: 20 },
-  { name: 'Tgl 10', mie: 45, jus: 25 },
-  { name: 'Tgl 15', mie: 40, jus: 30 },
-  { name: 'Tgl 20', mie: 60, jus: 45 },
-  { name: 'Tgl 25', mie: 75, jus: 55 },
-  { name: 'Tgl 30', mie: 70, jus: 65 },
-];
-
-const pieData: PieDataPoint[] = [
-  { name: 'Mie Ayam Bakso', value: 45, color: '#1e40af' },
-  { name: 'Mie Ayam Pangsit', value: 25, color: '#3b82f6' },
-  { name: 'Jus Alpukat', value: 15, color: '#93c5fd' },
-  { name: 'Jus Jeruk', value: 15, color: '#dbeafe' },
-];
-
-// Inline SVG Icons (iseng ganti lucide-react dulu) 
+// Inline SVG Icons
 const Icons = {
   LayoutDashboard: ({ size = 20 }: IconProps) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -95,102 +92,77 @@ const Icons = {
   ),
 };
 
-// Line Chart (iseng ganti recharts LineChart dulu) 
-const SimpleLineChart = ({ data }: { data: LineDataPoint[] }) => {
-  const vbW: number = 500;
-  const vbH: number = 220;
-  const pad: PadType = { top: 10, right: 20, bottom: 30, left: 36 };
-  const cW: number = vbW - pad.left - pad.right;
-  const cH: number = vbH - pad.top - pad.bottom;
-  const maxVal: number = 80;
-
-  const getX = (i: number): number => pad.left + (i / (data.length - 1)) * cW;
-  const getY = (val: number): number => pad.top + cH - (val / maxVal) * cH;
-
-  const buildPath = (key: keyof LineDataPoint): string =>
-    data
-      .map((d: LineDataPoint, i: number) =>
-        `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getY(d[key] as number).toFixed(1)}`
-      )
-      .join(' ');
-
-  const yTicks: number[] = [0, 20, 40, 60, 80];
-
-  return (
-    <svg viewBox={`0 0 ${vbW} ${vbH}`} className="w-full" style={{ height: '280px' }}>
-      {yTicks.map((tick: number) => (
-        <g key={tick}>
-          <line
-            x1={pad.left} y1={getY(tick)}
-            x2={vbW - pad.right} y2={getY(tick)}
-            stroke="#f0f0f0" strokeWidth="1"
-          />
-          <text x={pad.left - 6} y={getY(tick) + 4} textAnchor="end" fontSize="11" fill="#9ca3af">
-            {tick}
-          </text>
-        </g>
-      ))}
-      {data.map((d: LineDataPoint, i: number) => (
-        <text key={i} x={getX(i)} y={vbH - 5} textAnchor="middle" fontSize="11" fill="#9ca3af">
-          {d.name}
-        </text>
-      ))}
-      <path d={buildPath('mie')} fill="none" stroke="#1e40af" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={buildPath('jus')} fill="none" stroke="#93c5fd" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.7" />
-    </svg>
-  );
-};
-
-// Donut Chart (iseng ganti recharts PieChart dulu)
-type DonutSegment = PieDataPoint & {
-  dash: number;
-  gap: number;
-  rotation: number;
-};
-
-const DonutChart = ({ data }: { data: PieDataPoint[] }) => {
-  const r: number = 68;
-  const cx: number = 110;
-  const cy: number = 110;
-  const circumference: number = 2 * Math.PI * r;
-
-  let cumulativePct: number = 0;
-  const segments: DonutSegment[] = data.map((item: PieDataPoint): DonutSegment => {
-    const dash: number = (item.value / 100) * circumference;
-    const gap: number = circumference - dash;
-    const rotation: number = (cumulativePct / 100) * 360 - 90;
-    cumulativePct += item.value;
-    return { ...item, dash, gap, rotation };
-  });
-
-  return (
-    <svg viewBox="0 0 220 220" className="w-full" style={{ maxHeight: '200px' }}>
-      {segments.map((seg: DonutSegment, i: number) => (
-        <circle
-          key={i}
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke={seg.color}
-          strokeWidth="26"
-          strokeDasharray={`${seg.dash.toFixed(2)} ${seg.gap.toFixed(2)}`}
-          transform={`rotate(${seg.rotation.toFixed(2)} ${cx} ${cy})`}
-        />
-      ))}
-      <text x={cx} y={cy - 4} textAnchor="middle" fontSize="15" fontWeight="bold" fill="#1e3a8a">
-        Top 4
-      </text>
-      <text x={cx} y={cy + 14} textAnchor="middle" fontSize="11" fill="#9ca3af">
-        Produk
-      </text>
-    </svg>
-  );
-};
-
 // Main Dashboard Component
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<string>('Dashboard');
+  const [pieData, setPieData] = useState<PieChartData | null>(null);
+  const [omzetTrend, setOmzetTrend] = useState<OmzetTrendData | null>(null);
+  const [kpiData, setKpiData] = useState<KpiData | null>(null);
+
+  useEffect(() => {
+    DataService.fetchPieData().then((data) => setPieData(data));
+    DataService.fetchOmzetTrend().then((data) => setOmzetTrend(data));
+    DataService.fetchKPI().then((data) => setKpiData(data));
+  }, []);
+
+  // Transform omzetTrend into Chart.js Line format
+  const lineChartData = omzetTrend
+    ? {
+        labels: omzetTrend.labels,
+        datasets: [
+          {
+            label: 'Omzet (Rp)',
+            data: omzetTrend.data,
+            borderColor: '#1e40af',
+            backgroundColor: 'rgba(30, 64, 175, 0.08)',
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointBackgroundColor: '#1e40af',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            tension: 0.4,
+            fill: true,
+          },
+        ],
+      }
+    : null;
+
+  const lineChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (context: any) =>
+            ` Rp ${context.parsed.y.toLocaleString('id-ID')}`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: {
+          font: { size: 11 },
+          color: '#9ca3af',
+          // Shorten date labels: "2026-05-01" → "01/05"
+          callback: (_: any, index: number) => {
+            if (!omzetTrend) return '';
+            const parts = omzetTrend.labels[index].split('-');
+            return `${parts[2]}/${parts[1]}`;
+          },
+        },
+      },
+      y: {
+        grid: { color: '#f3f4f6' },
+        ticks: {
+          font: { size: 11 },
+          color: '#9ca3af',
+          callback: (value: any) =>
+            `${(value / 1000).toFixed(0)}k`,
+        },
+      },
+    },
+  };
 
   return (
     <div className="flex min-h-screen bg-[#f4f2fc]">
@@ -206,7 +178,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <nav className="mt-6 px-4 flex-grow">
+        <nav className="mt-6 px-4 grow">
           <button
             onClick={() => setActiveTab('Dashboard')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors ${
@@ -278,8 +250,10 @@ const Dashboard = () => {
                 <Icons.TrendingUp size={12} /> +12%
               </div>
             </div>
-            <p className="text-sm text-gray-500 font-medium">Pendapatan Harian</p>
-            <h4 className="text-2xl font-bold text-gray-900 mt-1">Rp 4.250.000</h4>
+            <p className="text-sm text-gray-500 font-medium">Pendapatan Hari ini</p>
+            <h4 className="text-2xl font-bold text-gray-900 mt-1">
+              
+            </h4>
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -287,12 +261,13 @@ const Dashboard = () => {
               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                 <Icons.ShoppingBag size={20} />
               </div>
-              <div className="px-2 py-1 bg-red-50 text-red-600 text-xs font-bold rounded flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-red-600 rounded-full inline-block"></span> Sibuk
-              </div>
             </div>
-            <p className="text-sm text-gray-500 font-medium">Pesanan Aktif</p>
-            <h4 className="text-2xl font-bold text-gray-900 mt-1">38 Pesanan</h4>
+            <p className="text-sm text-gray-500 font-medium">Mie Ayam Terjual</p>
+            <h4 className="text-2xl font-bold text-gray-900 mt-1">
+              {kpiData?.total_penjualan_mie_ayam != null 
+              ? `${kpiData.total_penjualan_mie_ayam} Porsi` 
+              : 'Loading...'}
+            </h4>
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -300,64 +275,51 @@ const Dashboard = () => {
               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                 <Icons.Database size={20} />
               </div>
-              <div className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded">
-                Real-time API
-              </div>
             </div>
-            <p className="text-sm text-gray-500 font-medium">Status Inventaris</p>
-            <div className="flex items-center gap-3 mt-1 mb-2">
-              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-600 rounded-full" style={{ width: '82%' }}></div>
+            <p className="text-sm text-gray-500 font-medium">Status Jus</p>
+            {kpiData !== null ? (
+              <div className="text-2xl font-bold text-gray-900 mt-1">
+                <div>Jus Terlaris: {kpiData.jus_terlaris}</div>
+                <div>Jus Tersepi: {kpiData.jus_tersepi}</div>
               </div>
-              <span className="text-xl font-bold text-gray-900">82%</span>
-            </div>
-            <p className="text-xs text-gray-400">Bahan utama aman.</p>
+            ) : (
+              <p>Loading...</p>
+            )}
           </div>
         </div>
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Line Chart — Omzet Trend */}
           <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="font-bold text-gray-900">Performa Penjualan (30 Hari)</h3>
-                <p className="text-xs text-gray-500">Mie Ayam vs Jus Buah</p>
+                <h3 className="font-bold text-gray-900">Tren Omzet</h3>
+                <p className="text-xs text-gray-500">Pendapatan harian (Rp)</p>
               </div>
               <button className="text-gray-400 hover:text-gray-600 transition-colors">
                 <Icons.MoreVertical size={20} />
               </button>
             </div>
-            <SimpleLineChart data={lineData} />
-            <div className="flex justify-center gap-6 mt-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-800 rounded-full"></div>
-                <span className="text-xs text-gray-600 font-medium">Mie Ayam (Porsi)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-200 rounded-full"></div>
-                <span className="text-xs text-gray-600 font-medium">Jus Buah (Gelas)</span>
-              </div>
-            </div>
+            {lineChartData
+              ? <Line data={lineChartData} options={lineChartOptions as any} />
+              : <p className="text-center text-gray-400 py-8">Loading...</p>
+            }
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          {/* Pie Chart — Distribusi Produk */}
+          <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <div className="mb-6">
               <h3 className="font-bold text-gray-900">Distribusi Produk</h3>
               <p className="text-xs text-gray-500">Item terlaris minggu ini</p>
             </div>
-            <DonutChart data={pieData} />
-            <div className="mt-6 space-y-3">
-              {pieData.map((item: PieDataPoint, index: number) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-xs text-gray-600 font-medium">{item.name}</span>
-                  </div>
-                  <span className="text-xs font-bold text-gray-900">{item.value}%</span>
-                </div>
-              ))}
-            </div>
+            {pieData
+              ? <Pie data={pieData} />
+              : <p className="text-center text-gray-400 py-8">Loading...</p>
+            }
           </div>
+
         </div>
       </main>
     </div>
