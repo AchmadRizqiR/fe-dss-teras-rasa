@@ -1,4 +1,4 @@
-import Dashboard from "../dashboard/dashboard";
+import DashboardIndex from "../dashboard";
 import AuthService from "../services/AuthService";
 import { redirect } from "react-router";
 
@@ -9,5 +9,5 @@ import { redirect } from "react-router";
 // }
 
 export default function Index() {
-  return <Dashboard />;
+  return <DashboardIndex />;
 }
