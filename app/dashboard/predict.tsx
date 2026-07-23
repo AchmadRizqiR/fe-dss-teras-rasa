@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   TrendingUp,
   Download,
   RefreshCw,
   ShoppingCart,
   Package,
-} from 'lucide-react';
-import { Bar, Doughnut } from 'react-chartjs-2';
+  AlertCircle,
+} from "lucide-react";
+import { Bar, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   BarElement,
@@ -15,310 +16,298 @@ import {
   Tooltip,
   Legend,
   ArcElement,
-} from 'chart.js';
+} from "chart.js";
+import DataService from "../services/DataService";
 
 // Register Chart.js components
-ChartJS.register(
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
-  ArcElement
-);
+ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, ArcElement);
 
-// --- Chart Data ---
-
-// Bar chart data (Target vs Realization)
-const barData = {
-  labels: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
-  datasets: [
-    {
-      label: 'Target',
-      data: [80, 90, 100, 110, 120, 140, 130],
-      backgroundColor: '#1e40af', // blue-900
-      borderRadius: 4,
-      barPercentage: 0.5,
-    },
-    {
-      label: 'Realisasi',
-      data: [65, 70, 85, 95, 110, 135, 120],
-      backgroundColor: '#e2e8f0', // gray-200
-      borderRadius: 4,
-      barPercentage: 0.5,
-    },
-  ],
+// Harga menu mengikuti backend (upload.py → HARGA_MENU)
+const HARGA_MENU: Record<string, number> = {
+  "Mie Ayam": 15000,
+  Alpukat: 12000,
+  Mangga: 12000,
+  Strobery: 12000,
+  Jeruk: 10000,
+  Jambu: 10000,
 };
 
-const barOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    tooltip: {
-      backgroundColor: 'white',
-      borderColor: '#e2e8f0',
-      borderWidth: 1,
-      titleColor: '#1e293b',
-      bodyColor: '#1e293b',
-      cornerRadius: 12,
-      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-      callbacks: {
-        label: (context: any) => `${context.dataset.label}: ${context.parsed.y}`,
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid: { display: false },
-      ticks: {
-        font: {
-          size: 12,
-          weight: 'bold' as const, // ✅ Fix
-        },
-        color: '#94a3b8',
-      },
-    },
-    y: {
-      grid: { color: '#f1f5f9' },
-      ticks: {
-        font: { size: 12 },
-        color: '#94a3b8',
-      },
-      beginAtZero: true,
-    },
-  },
+// Estimasi kebutuhan bahan per porsi (untuk restock alert)
+const KEBUTUHAN_BAHAN: Record<string, { bahan: string; perPorsi: number; satuan: string }> = {
+  "Mie Ayam": { bahan: "Mie Kering", perPorsi: 0.1, satuan: "kg" },
+  Alpukat: { bahan: "Alpukat", perPorsi: 0.25, satuan: "kg" },
+  Mangga: { bahan: "Mangga", perPorsi: 0.25, satuan: "kg" },
+  Strobery: { bahan: "Stroberi", perPorsi: 0.2, satuan: "kg" },
+  Jeruk: { bahan: "Jeruk", perPorsi: 0.2, satuan: "kg" },
+  Jambu: { bahan: "Jambu", perPorsi: 0.2, satuan: "kg" },
 };
 
-// Donut chart data (radial target: 70% achieved)
-const donutData = {
-  datasets: [
-    {
-      data: [70, 30],
-      backgroundColor: ['#1e40af', '#f1f5f9'],
-      borderWidth: 0,
-    },
-  ],
+const formatRupiah = (n: number) =>
+  `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+
+type RestockItem = {
+  name: string;
+  estimasi: string;
+  status: string;
+  color: string;
+  bg: string;
+  iconBg: string;
 };
-
-const donutOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  cutout: '75%',
-  plugins: {
-    legend: { display: false },
-    tooltip: { enabled: false },
-  },
-};
-
-// --- Mock Data for Restock Alerts & Projections ---
-
-const restockAlerts = [
-  {
-    name: 'Tepung Mie Spesial',
-    stock: '5kg',
-    status: 'Habis dlm 2 hari',
-    color: 'text-red-600',
-    icon: <ShoppingCart className="text-white" size={18} />,
-    bg: 'bg-red-50',
-    iconBg: 'bg-red-600',
-  },
-  {
-    name: 'Ayam Fillet (Paha)',
-    stock: '12kg',
-    status: 'Prediksi habis: 4 hari',
-    color: 'text-gray-600',
-    icon: <ShoppingCart className="text-white" size={18} />,
-    bg: 'bg-blue-50',
-    iconBg: 'bg-slate-600',
-  },
-  {
-    name: 'Sirup Jeruk Nipis',
-    stock: '8 botol',
-    status: 'Prediksi habis: 6 hari',
-    color: 'text-gray-600',
-    icon: <ShoppingCart className="text-white" size={18} />,
-    bg: 'bg-slate-50',
-    iconBg: 'bg-slate-400',
-  },
-];
-
-const dailyProjections = [
-  {
-    date: 'Senin, 20 Okt',
-    traffic: 'Moderate (85-110 customer)',
-    revenue: 'Rp 1.450.000',
-    ops: 'Staff Standar (2 Org)',
-    status: 'AMAN',
-    statusColor: 'bg-green-100 text-green-700',
-  },
-  {
-    date: 'Jumat, 24 Okt',
-    traffic: 'High (180-220 customer)',
-    revenue: 'Rp 2.800.000',
-    ops: 'Extra Staff (4 Org)',
-    status: 'PERLU PERSIAPAN',
-    statusColor: 'bg-yellow-100 text-yellow-700',
-  },
-  {
-    date: 'Sabtu, 25 Okt',
-    traffic: 'Very High (250+ customer)',
-    revenue: 'Rp 3.500.000',
-    ops: 'Full Team + Stok Cadangan',
-    status: 'PERLU PERSIAPAN',
-    statusColor: 'bg-yellow-100 text-yellow-700',
-  },
-];
-
-// --- Main Component ---
 
 const SalesPrediction = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [estimasiOmzet, setEstimasiOmzet] = useState<number>(0);
+  const [tanggalPrediksi, setTanggalPrediksi] = useState<string>("");
+
+  const loadPrediction = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await DataService.fetchPredictOmzet();
+      setEstimasiOmzet(data.estimasi_omzet || 0);
+      setTanggalPrediksi(data.tanggal_prediksi || "");
+    } catch (err: any) {
+      setError(err?.message || "Gagal memuat prediksi.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPrediction();
+  }, [loadPrediction]);
+
+  // --- Estimasi porsi per menu (distribusi proporsional berdasarkan harga) ---
+  const totalHarga = Object.values(HARGA_MENU).reduce((a, b) => a + b, 0);
+  const estimasiPorsi = Object.entries(HARGA_MENU).map(([menu, harga]) => ({
+    menu,
+    porsi: Math.round((estimasiOmzet * (harga / totalHarga)) / harga),
+  }));
+
+  const totalPorsi = estimasiPorsi.reduce((a, b) => a + b.porsi, 0);
+
+  // Restock alert dari estimasi porsi
+  const restockAlerts: RestockItem[] = estimasiPorsi
+    .map(({ menu, porsi }) => {
+      const keb = KEBUTUHAN_BAHAN[menu];
+      if (!keb) return null;
+      const total = (porsi * keb.perPorsi).toFixed(1);
+      return {
+        name: keb.bahan,
+        estimasi: `${total} ${keb.satuan}`,
+        status: `Untuk ${porsi} porsi ${menu}`,
+        color: "text-gray-600",
+        bg: "bg-blue-50",
+        iconBg: "bg-slate-600",
+      } as RestockItem;
+    })
+    .filter((x): x is RestockItem => x !== null);
+
+  // Donut: proporsi estimasi porsi mie ayam vs jus
+  const porsiMie = estimasiPorsi.find((p) => p.menu === "Mie Ayam")?.porsi || 0;
+  const porsiJus = totalPorsi - porsiMie;
+  const donutData = {
+    datasets: [
+      {
+        data: [porsiMie, porsiJus],
+        backgroundColor: ["#1e40af", "#93c5fd"],
+        borderWidth: 0,
+      },
+    ],
+  };
+  const donutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "75%",
+    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+  };
+
+  // Bar chart: estimasi porsi per menu (Target vs Estimasi)
+  const barData = {
+    labels: estimasiPorsi.map((p) => p.menu),
+    datasets: [
+      {
+        label: "Estimasi Porsi",
+        data: estimasiPorsi.map((p) => p.porsi),
+        backgroundColor: "#1e40af",
+        borderRadius: 4,
+        barPercentage: 0.5,
+      },
+    ],
+  };
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "white",
+        borderColor: "#e2e8f0",
+        borderWidth: 1,
+        titleColor: "#1e293b",
+        bodyColor: "#1e293b",
+        callbacks: {
+          label: (context: any) => `${context.dataset.label}: ${context.parsed.y} porsi`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11, weight: "bold" as const }, color: "#94a3b8" },
+      },
+      y: {
+        grid: { color: "#f1f5f9" },
+        ticks: { font: { size: 12 }, color: "#94a3b8" },
+        beginAtZero: true,
+      },
+    },
+  };
+
+  const handleDownload = () => {
+    const report = {
+      tanggal_prediksi: tanggalPrediksi,
+      estimasi_omzet: estimasiOmzet,
+      estimasi_porsi: estimasiPorsi,
+      restock: restockAlerts,
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prediksi-penjualan-${tanggalPrediksi || "terbaru"}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-8">
       {/* Header */}
       <header className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Prediksi Sales & Restock</h2>
-          <p className="text-gray-500">Optimalkan inventaris Anda berdasarkan tren mingguan.</p>
+          <p className="text-gray-500">Optimalkan inventaris Anda berdasarkan prediksi omzet.</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-bold text-sm border border-blue-100">
+          <button
+            onClick={handleDownload}
+            disabled={loading || !!error}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-bold text-sm border border-blue-100 disabled:opacity-50 cursor-pointer"
+          >
             <Download size={18} /> Download Report
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg font-bold text-sm shadow-md">
-            <RefreshCw size={18} /> Update Data
+          <button
+            onClick={loadPrediction}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg font-bold text-sm shadow-md disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} /> Update Data
           </button>
         </div>
       </header>
 
-      {/* Revenue Card + Donut Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-20 -mt-20 opacity-50"></div>
-          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full uppercase tracking-wider">
-            Estimated Revenue
-          </span>
-          <h3 className="text-4xl font-bold text-gray-900 mt-4">Rp 12.450.000</h3>
-          <p className="text-green-600 font-bold mt-2 flex items-center gap-1">
-            <TrendingUp size={16} /> +12.5% <span className="text-gray-400 font-normal">dibanding minggu lalu</span>
-          </p>
+      {error && (
+        <div className="mb-6 flex items-center gap-3 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl">
+          <AlertCircle size={20} />
+          <p className="text-sm font-medium">{error}</p>
+        </div>
+      )}
 
-          <div className="grid grid-cols-3 gap-4 mt-10 pt-6 border-t border-gray-50">
-            <div>
-              <p className="text-xs text-gray-400 font-medium uppercase">Prediksi Order</p>
-              <p className="text-lg font-bold text-gray-900">
-                840 <span className="text-sm font-normal text-gray-500">Porsi</span>
+      {loading ? (
+        <p className="text-center text-gray-400 py-20">Memuat prediksi...</p>
+      ) : (
+        <>
+          {/* Revenue Card + Donut Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-20 -mt-20 opacity-50"></div>
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full uppercase tracking-wider">
+                Estimated Revenue
+              </span>
+              <h3 className="text-4xl font-bold text-gray-900 mt-4">
+                {formatRupiah(estimasiOmzet)}
+              </h3>
+              <p className="text-gray-500 font-medium mt-2">
+                Prediksi untuk {tanggalPrediksi || "-"}
               </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 font-medium uppercase">Best Seller</p>
-              <p className="text-lg font-bold text-gray-900">Mie Ayam Bakso</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 font-medium uppercase">Peak Day</p>
-              <p className="text-lg font-bold text-gray-900">Sabtu, 19:00</p>
-            </div>
-          </div>
-        </div>
 
-        {/* Donut Chart (Target Achievement) */}
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center">
-          <p className="text-sm font-bold text-gray-900 mb-6 w-full">Pencapaian Target Minggu Ini</p>
-          <div className="relative w-48 h-48">
-            <Doughnut data={donutData} options={donutOptions} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-gray-900">70%</span>
-              <span className="text-xs text-gray-400 font-medium">Rp 8.715.000</span>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-6 text-center">
-            Sisa <span className="font-bold text-gray-900">Rp 3.735.000</span> untuk mencapai target mingguan Anda.
-          </p>
-        </div>
-      </div>
-
-      {/* Bar Chart + Restock Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="font-bold text-gray-900">Tren Target vs Realisasi</h3>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-800 rounded-full"></div>
-                <span className="text-xs text-gray-500">Target</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-gray-200 rounded-full"></div>
-                <span className="text-xs text-gray-500">Realisasi</span>
-              </div>
-            </div>
-          </div>
-          <div className="h-64">
-            <Bar data={barData} options={barOptions} />
-          </div>
-        </div>
-
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-gray-900">Restock Alerts</h3>
-            <Package size={20} className="text-blue-800" />
-          </div>
-          <div className="space-y-4">
-            {restockAlerts.map((item, idx) => (
-              <div key={idx} className={`${item.bg} p-4 rounded-2xl flex items-center gap-4`}>
-                <div className={`${item.iconBg} p-3 rounded-xl`}>{item.icon}</div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-gray-900">{item.name}</p>
-                  <p className="text-xs text-gray-500">
-                    Stok: {item.stock} | <span className={item.color}>{item.status}</span>
+              <div className="grid grid-cols-3 gap-4 mt-10 pt-6 border-t border-gray-50">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium uppercase">Prediksi Order</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {totalPorsi.toLocaleString("id-ID")}{" "}
+                    <span className="text-sm font-normal text-gray-500">Porsi</span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-medium uppercase">Mie Ayam</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {porsiMie.toLocaleString("id-ID")} Porsi
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-medium uppercase">Jus</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {porsiJus.toLocaleString("id-ID")} Porsi
                   </p>
                 </div>
               </div>
-            ))}
-          </div>
-          <button className="w-full mt-6 py-3 border-2 border-dashed border-gray-200 text-xs font-bold text-gray-400 rounded-xl hover:bg-gray-50 transition-colors">
-            Lihat Semua Rekomendasi Restock
-          </button>
-        </div>
-      </div>
+            </div>
 
-      {/* Projections Table */}
-      <section className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-          <h3 className="font-bold text-gray-900">Proyeksi Penjualan Harian</h3>
-          <span className="text-xs font-bold text-gray-400 bg-gray-50 px-3 py-1 rounded-full uppercase">
-            Minggu, 20-26 Okt 2023
-          </span>
-        </div>
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-gray-50/50">
-              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Hari / Tanggal</th>
-              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Prediksi Traffic</th>
-              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Target Revenue</th>
-              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Rekomendasi Operasional</th>
-              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {dailyProjections.map((row, idx) => (
-              <tr key={idx} className="hover:bg-gray-50/30 transition-colors">
-                <td className="px-6 py-5 text-sm font-bold text-gray-900">{row.date}</td>
-                <td className="px-6 py-5 text-sm text-gray-600">{row.traffic}</td>
-                <td className="px-6 py-5 text-sm font-bold text-gray-900">{row.revenue}</td>
-                <td className="px-6 py-5 text-sm font-bold text-blue-800">{row.ops}</td>
-                <td className="px-6 py-5">
-                  <span className={`${row.statusColor} px-3 py-1 rounded-full text-[10px] font-bold`}>
-                    {row.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+            {/* Donut Chart (Komposisi Mie Ayam vs Jus) */}
+            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center">
+              <p className="text-sm font-bold text-gray-900 mb-6 w-full">Komposisi Estimasi</p>
+              <div className="relative w-48 h-48">
+                <Doughnut data={donutData} options={donutOptions} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-gray-900">{totalPorsi}</span>
+                  <span className="text-xs text-gray-400 font-medium">Porsi</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-6 text-center">
+                Mie Ayam {porsiMie} & Jus {porsiJus} porsi
+              </p>
+            </div>
+          </div>
+
+          {/* Bar Chart + Restock Alerts */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="font-bold text-gray-900">Estimasi Porsi per Menu</h3>
+              </div>
+              <div className="h-64">
+                <Bar data={barData} options={barOptions} />
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-gray-900">Restock Alerts</h3>
+                <Package size={20} className="text-blue-800" />
+              </div>
+              <div className="space-y-4">
+                {restockAlerts.map((item, idx) => (
+                  <div key={idx} className={`${item.bg} p-4 rounded-2xl flex items-center gap-4`}>
+                    <div className={`${item.iconBg} p-3 rounded-xl`}>
+                      <ShoppingCart className="text-white" size={18} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-gray-900">{item.name}</p>
+                      <p className="text-xs text-gray-500">
+                        Estimasi: {item.estimasi} | <span className={item.color}>{item.status}</span>
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

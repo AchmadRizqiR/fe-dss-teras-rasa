@@ -10,6 +10,7 @@ import {
   LineElement,
   Filler,
 } from "chart.js";
+import { User } from "lucide-react";
 
 import { Pie, Line } from "react-chartjs-2";
 import DataService from "../services/DataService";
@@ -154,6 +155,37 @@ const Icons = {
       <circle cx="12" cy="19" r="1" fill="currentColor" />
     </svg>
   ),
+  CheckCircle2: ({ size = 20 }: IconProps) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  ),
+  AlertCircle: ({ size = 20 }: IconProps) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  ),
 };
 
 // Main Dashboard Component
@@ -162,11 +194,44 @@ const Dashboard = () => {
   const [omzetTrend, setOmzetTrend] = useState<OmzetTrendData | null>(null);
   const [kpiData, setKpiData] = useState<KpiData | null>(null);
 
-  useEffect(() => {
+  const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [uploadStatusHariIni, setUploadStatusHariIni] = useState<any>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const loadDashboardData = () => {
     DataService.fetchPieData().then((data) => setPieData(data));
     DataService.fetchOmzetTrend().then((data) => setOmzetTrend(data));
     DataService.fetchKPI().then((data) => setKpiData(data));
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, []);
+
+  const handleUpload = async () => {
+    if (!file) {
+      setUploadErr("Pilih file Excel terlebih dahulu.");
+      return;
+    }
+    setUploading(true);
+    setUploadErr(null);
+    setUploadMsg(null);
+    setUploadStatusHariIni(null);
+    try {
+      const res = await DataService.uploadHarian(file);
+      setUploadMsg(res.message);
+      setUploadStatusHariIni(res.status_hari_ini);
+      loadDashboardData(); // refresh KPI & chart setelah upload sukses
+    } catch (err: any) {
+      setUploadErr(err?.message || "Gagal mengunggah file.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Transform omzetTrend into Chart.js Line format
   const lineChartData = omzetTrend
@@ -235,16 +300,34 @@ const Dashboard = () => {
             Pantau performa penjualan dan inventaris secara real-time.
           </p>
         </div>
-        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm">
-          <img
-            src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-            alt="User Profile"
-          />
+        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 border-2 border-white shadow-sm flex items-center justify-center">
+          <User size={20} />
         </div>
       </header>
 
       {/* Upload Area */}
-      <section className="mb-8 p-12 border-2 border-dashed border-blue-200 bg-white/50 rounded-2xl flex flex-col items-center justify-center text-center">
+      <section
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const dropped = e.dataTransfer.files?.[0];
+          if (dropped) {
+            setFile(dropped);
+            setUploadMsg(null);
+            setUploadErr(null);
+          }
+        }}
+        className={`mb-8 p-12 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center transition-colors ${
+          dragging
+            ? "border-blue-500 bg-blue-50"
+            : "border-blue-200 bg-white/50"
+        }`}
+      >
         <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mb-4">
           <Icons.FileUp size={24} />
         </div>
@@ -256,8 +339,52 @@ const Dashboard = () => {
           dari komputer Anda untuk memperbarui data dasbor.
         </p>
         <div className="mt-4 px-4 py-1.5 bg-gray-200/50 text-xs text-gray-600 rounded-full">
-          Mendukung .xlsx, .csv (Maks 10MB)
+          Mendukung .xlsx, .xls (Maks 10MB)
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          className="hidden"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] || null);
+            setUploadMsg(null);
+            setUploadErr(null);
+          }}
+        />
+
+        <div className="mt-6 flex items-center gap-3">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-6 py-2 border border-blue-200 text-blue-700 rounded-full text-sm font-bold hover:bg-blue-50 transition-colors cursor-pointer"
+          >
+            {file ? file.name : "Pilih File"}
+          </button>
+          <button
+            onClick={handleUpload}
+            disabled={uploading || !file}
+            className="px-6 py-2 bg-blue-800 text-white rounded-full text-sm font-bold shadow-md disabled:opacity-50 cursor-pointer"
+          >
+            {uploading ? "Mengunggah..." : "Unggah"}
+          </button>
+        </div>
+
+        {uploadMsg && (
+          <div className="mt-4 flex items-center gap-2 text-green-700 text-xs font-medium">
+            <Icons.CheckCircle2 size={16} /> {uploadMsg}
+          </div>
+        )}
+        {uploadErr && (
+          <div className="mt-4 flex items-center gap-2 text-red-600 text-xs font-medium">
+            <Icons.AlertCircle size={16} /> {uploadErr}
+          </div>
+        )}
+        {uploadStatusHariIni != null && (
+          <div className="mt-3 text-xs text-gray-600 bg-gray-50 rounded-xl px-4 py-2">
+            Status hari ini: {JSON.stringify(uploadStatusHariIni)}
+          </div>
+        )}
       </section>
 
       {/* Metric Cards */}
@@ -274,7 +401,11 @@ const Dashboard = () => {
           <p className="text-sm text-gray-500 font-medium">
             Pendapatan Hari ini
           </p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1"></h4>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">
+            {omzetTrend?.data && omzetTrend.data.length > 0
+              ? `Rp ${omzetTrend.data[omzetTrend.data.length - 1].toLocaleString("id-ID")}`
+              : "Loading..."}
+          </h4>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -318,7 +449,7 @@ const Dashboard = () => {
               <h3 className="font-bold text-gray-900">Tren Omzet</h3>
               <p className="text-xs text-gray-500">Pendapatan harian (Rp)</p>
             </div>
-            <button className="text-gray-400 hover:text-gray-600 transition-colors">
+            <button className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
               <Icons.MoreVertical size={20} />
             </button>
           </div>

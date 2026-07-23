@@ -43,20 +43,15 @@ export function Login() {
           <div className="mb-6">
             {/* Angka 50 dengan garis bawah biru */}
             <div className="inline-block relative">
-              <span className="text-5xl font-extrabold text-black">50</span>
-              <div className="absolute bottom-0 left-0 w-full h-1.5 bg-blue-600"></div>
+              <span className="text-5xl font-extrabold text-black">DSS</span>
             </div>
           </div>
 
           <h1 className="text-6xl font-extrabold leading-tight tracking-tight">
-            <span className="text-blue-600 block">Login Design</span>
-            <span className="text-black block">Examples</span>
+            <span className="text-blue-600 block">Mie Ayam</span>
+            <span className="text-black block">Teras Rasa</span>
           </h1>
 
-          <p className="mt-6 text-2xl font-medium text-black">
-            that Mix <span className="text-blue-600">Creativity</span> with{" "}
-            <span className="text-blue-600">Convenience</span>
-          </p>
         </div>
 
         {/* KANAN - Bagian Form Login / Glassmorphism (Lebar 40%) */}

@@ -4,10 +4,12 @@ import {
   TrendingUp, 
   ChevronDown, 
   Settings,
+  LogOut,
 } from 'lucide-react';
 import Dashboard from './dashboard';
 import Predict from './predict';
 import TrainModel from './trainModel';
+import AuthService from '../services/AuthService';
 
 export default function DashboardIndex() {
     const [activeTab, setActiveTab] = useState<string>('Dashboard');
@@ -54,14 +56,25 @@ export default function DashboardIndex() {
           </div>
         </nav>
 
-        <div className="p-6 border-t border-gray-100 flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
-            <Settings size={20} />
+        <div className="p-6 border-t border-gray-100">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+              <Settings size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900 leading-none">Chef Admin</p>
+              <p className="text-[10px] text-gray-400 uppercase mt-1">System Engineer</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-bold text-gray-900 leading-none">Chef Admin</p>
-            <p className="text-[10px] text-gray-400 uppercase mt-1">System Engineer</p>
-          </div>
+          <button
+            onClick={() => {
+              AuthService.logout();
+              window.location.assign("/login");
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
+          >
+            <LogOut size={16} /> Logout
+          </button>
         </div>
       </aside>
       
