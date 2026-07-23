@@ -26,8 +26,6 @@ export function Login() {
 
   return (
     <main className="relative flex items-center justify-center w-screen h-screen bg-gray-100 p-8">
-      {/* 🌟 OVERLAY LOADING ANIMATION 🌟 */}
-      {/* Akan muncul di atas segalanya kalau isLoading = true */}
       <div 
         className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/40 backdrop-blur-sm transition-all duration-300 ease-in-out
           ${isLoading ? "opacity-100 visible" : "opacity-0 invisible"}
@@ -45,20 +43,15 @@ export function Login() {
           <div className="mb-6">
             {/* Angka 50 dengan garis bawah biru */}
             <div className="inline-block relative">
-              <span className="text-5xl font-extrabold text-black">50</span>
-              <div className="absolute bottom-0 left-0 w-full h-1.5 bg-blue-600"></div>
+              <span className="text-5xl font-extrabold text-black">DSS</span>
             </div>
           </div>
 
           <h1 className="text-6xl font-extrabold leading-tight tracking-tight">
-            <span className="text-blue-600 block">Login Design</span>
-            <span className="text-black block">Examples</span>
+            <span className="text-blue-600 block">Mie Ayam</span>
+            <span className="text-black block">Teras Rasa</span>
           </h1>
 
-          <p className="mt-6 text-2xl font-medium text-black">
-            that Mix <span className="text-blue-600">Creativity</span> with{" "}
-            <span className="text-blue-600">Convenience</span>
-          </p>
         </div>
 
         {/* KANAN - Bagian Form Login / Glassmorphism (Lebar 40%) */}
